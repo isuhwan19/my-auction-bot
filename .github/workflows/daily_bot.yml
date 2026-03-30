@@ -1,0 +1,33 @@
+name: Daily Cheonan Auction Analysis Bot
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 한국 시간 기준 매일 오전 9시 (UTC 0시)
+  workflow_dispatch:      # 수동 실행 가능
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+          
+      # Selenium运行环境 필요한 크롬 드라이버 설치
+      - name: Install Chrome and Webdriver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          
+      - name: Run Script
+        run: python bot.py
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
