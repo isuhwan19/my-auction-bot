@@ -9,7 +9,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.common.exceptions import AlertPresentException
+# 임포트 오류를 방지하기 위해 상위 예외 클래스를 가져옵니다.
+from selenium.common import exceptions
 
 # --- 환경 설정 ---
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -27,7 +28,7 @@ def send_telegram_msg(msg):
         pass
 
 def crawl_and_analyze():
-    send_telegram_msg("🚀 **천안 경매 비서 가동 (문법 수정 완료)**")
+    send_telegram_msg("🚀 **천안 경매 비서 가동 (라이브러리 최적화)**")
     
     options = Options()
     options.add_argument("--headless=new")
@@ -54,14 +55,15 @@ def crawl_and_analyze():
         search_btn = driver.find_element(By.XPATH, "//a[contains(@onclick, 'goSrch')]")
         driver.execute_script("arguments[0].click();", search_btn)
         
-        # 4. 혹시 모를 팝업창(Alert) 확인 및 닫기
+        # 4. 혹시 모를 팝업창(Alert) 확인 및 닫기 (예외처리 강화)
         time.sleep(3)
         try:
             alert = driver.switch_to.alert
             alert_text = alert.text
             send_telegram_msg(f"⚠️ 법원 사이트 메시지: {alert_text}")
             alert.accept()
-        except AlertPresentException:
+        except:
+            # 팝업이 없으면 자연스럽게 넘어갑니다.
             pass
             
         # 5. 결과 로딩 대기
@@ -80,8 +82,8 @@ def crawl_and_analyze():
             case_no = cols[1].text.strip()
             addr = cols[3].text.replace('\n', ' ')
             
-            # AI 분석 (Gemini 1.5 Flash 모델 사용)
-            prompt = f"경매 사건번호 {case_no}, 주소 {addr} 분석. 투자 점수와 핵심 한줄평."
+            # AI 분석
+            prompt = f"경매 사건번호 {case_no}, 주소 {addr} 분석. 투자 점수와 핵심 한줄평을 한국어로 써줘."
             response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt)
             
             send_telegram_msg(f"🏠 <b>AI 분석</b>\n사건번호: {case_no}\n{response.text}")
@@ -90,7 +92,7 @@ def crawl_and_analyze():
             send_telegram_msg(f"⚠️ 결과가 없습니다. (현재 화면: {page_text})")
 
     except Exception as e:
-        send_telegram_msg(f"❌ 오류 발생: {str(e)[:100]}")
+        send_telegram_msg(f"❌ 오류 발생: {str(e)[:150]}")
     
     finally:
         driver.quit()
