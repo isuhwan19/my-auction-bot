@@ -107,4 +107,8 @@ def crawl_and_analyze():
         driver.quit()
 
 if __name__ == "__main__":
+    # 1. 먼저 텔레그램 연결 테스트 (이게 오면 텔레그램 설정은 OK!)
+    send_telegram_msg("🚀 천안 경매 비서 가동 테스트 시작!")
+    
+    # 2. 원래 크롤링 실행
     crawl_and_analyze()
