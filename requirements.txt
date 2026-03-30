@@ -1,4 +1,4 @@
 selenium
 webdriver-manager
-google-genai  # google-generativeai 대신 최신 라이브러리 사용
+google-genai
 requests
