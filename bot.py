@@ -6,8 +6,6 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import Select, WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 # --- 환경 설정 ---
@@ -21,62 +19,48 @@ def send_telegram_msg(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "HTML"})
 
-def crawl_and_analyze():
-    send_telegram_msg("🕵️ **스텔스 모드로 법원 잠입 중...**")
+def crawl_km_madang():
+    send_telegram_msg("🏃 **경매마당으로 목표 변경! 데이터 수집 시작**")
     
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    # [강력 추가] 자동화 흔적 지우기
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
     
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     
-    # [강력 추가] 웹드라이버 속성 제거
-    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-        "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-    })
-
     try:
-        # 법원 사이트는 메인부터 천천히 들어가야 합니다.
-        driver.get("https://www.courtauction.go.kr/")
-        time.sleep(7)
+        # 천안 지역 경매 물건 검색 결과로 직접 접속 (예시 URL)
+        # 경매마당에서 '천안' 검색 필터를 적용한 주소를 사용합니다.
+        search_url = "https://www.kyungmaemadang.com/auction/list?address=%EC%B2%9C%EC%95%88"
+        driver.get(search_url)
+        time.sleep(7) # 결과 로딩 대기
         
-        # 검색 페이지로 우회 접속
-        driver.get("https://www.courtauction.go.kr/RetrieveRealEstMainList.action")
-        time.sleep(10)
+        # 물건 리스트 찾기 (실제 사이트의 태그 구조에 맞춰 수정 필요)
+        # 경매마당의 경우 클래스명이 'AuctionItem_container' 등으로 구성됨
+        items = driver.find_elements(By.CSS_SELECTOR, "div[class*='AuctionItem_container']")
         
-        # 검색 조건 설정
-        wait = WebDriverWait(driver, 20)
-        jiwon = wait.until(EC.presence_of_element_located((By.ID, "idJiwon")))
-        Select(jiwon).select_by_visible_text("대전지방법원 천안지원")
-        
-        # 사람처럼 보이게 랜덤 대기
-        time.sleep(3)
-        driver.execute_script("goSrch();")
-        
-        time.sleep(10)
-        items = driver.find_elements(By.CSS_SELECTOR, "table.Ltbl_list tr")
-        
-        if len(items) > 1:
-            cols = items[1].find_elements(By.TAG_NAME, "td")
-            case_no = cols[1].text.strip()
-            addr = cols[3].text.replace('\n', ' ')
+        if items:
+            send_telegram_msg(f"✅ 경매마당에서 {len(items)}개의 물건을 찾았습니다!")
             
-            prompt = f"경매 {case_no}, 주소 {addr} 분석 및 투자 가치 점수."
+            # 첫 번째 물건 정보 추출
+            title = items[0].text.split('\n')[0] # 예: 아파트 이름 등
+            
+            # Gemini 분석
+            prompt = f"경매 물건 '{title}'에 대해 천안 지역 부동산 전망을 섞어서 짧은 투자평을 써줘."
             response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt)
-            send_telegram_msg(f"🏠 **드디어 성공!**\n{response.text}")
+            
+            send_telegram_msg(f"🏠 <b>경매마당 분석</b>\n물건명: {title}\n{response.text}")
         else:
-            send_telegram_msg("📍 입장은 했으나 물건을 찾지 못했습니다.")
+            # 만약 못 찾았다면 화면 텍스트 확인
+            body_text = driver.find_element(By.TAG_NAME, "body").text[:100]
+            send_telegram_msg(f"📍 물건 리스트를 읽지 못했습니다. (원인: {body_text})")
 
     except Exception as e:
-        send_telegram_msg(f"❌ 보안망을 뚫지 못했습니다.")
+        send_telegram_msg(f"❌ 경매마당 접속 실패: {str(e)[:50]}")
     finally:
         driver.quit()
 
 if __name__ == "__main__":
-    crawl_and_analyze()
+    crawl_km_madang()
