@@ -65,7 +65,7 @@ def crawl_and_analyze():
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     
     try:
-        driver.get("[https://www.courtauction.go.kr/](https://www.courtauction.go.kr/)")
+        driver.get("https://www.courtauction.go.kr/")
         time.sleep(2)
         driver.switch_to.frame("indexFrame")
         driver.find_element(By.ID, "menu01").click() # 경매물건 메뉴
