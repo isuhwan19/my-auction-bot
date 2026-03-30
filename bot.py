@@ -21,11 +21,13 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 def send_telegram_msg(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "HTML"}
-    try: requests.post(url, data=payload)
-    except: pass
+    try:
+        requests.post(url, data=payload)
+    except:
+        pass
 
 def crawl_and_analyze():
-    send_telegram_msg("🚀 **천안 경매 비서 가동 (팝업 제어 모드)**")
+    send_telegram_msg("🚀 **천안 경매 비서 가동 (문법 수정 완료)**")
     
     options = Options()
     options.add_argument("--headless=new")
@@ -34,7 +36,7 @@ def crawl_and_analyze():
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
     
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-    wait = WebDriverWait(driver, 20)
+    wait = WebDriverWait(driver, 25)
     
     try:
         # 1. 상세 검색 페이지 접속
@@ -47,7 +49,7 @@ def crawl_and_analyze():
         Select(jiwon).select_by_visible_text("대전지방법원 천안지원")
         time.sleep(2)
         
-        # 3. 검색 버튼 직접 클릭 (가장 중요!)
+        # 3. 검색 버튼 직접 클릭
         send_telegram_msg("🔍 검색 버튼 클릭 시도...")
         search_btn = driver.find_element(By.XPATH, "//a[contains(@onclick, 'goSrch')]")
         driver.execute_script("arguments[0].click();", search_btn)
@@ -58,9 +60,9 @@ def crawl_and_analyze():
             alert = driver.switch_to.alert
             alert_text = alert.text
             send_telegram_msg(f"⚠️ 법원 사이트 메시지: {alert_text}")
-            alert.accept() # 확인 버튼 누르기
+            alert.accept()
         except AlertPresentException:
-            pass # 팝업 없으면 통과
+            pass
             
         # 5. 결과 로딩 대기
         send_telegram_msg("⏳ 결과 데이터를 기다리는 중 (15초)...")
@@ -70,4 +72,29 @@ def crawl_and_analyze():
         items = driver.find_elements(By.CSS_SELECTOR, "table.Ltbl_list tr")
         
         if len(items) > 1:
-            send_telegram_msg(f"✅ {len(items)-1}건
+            count = len(items) - 1
+            send_telegram_msg(f"✅ {count}건의 물건을 발견했습니다!")
+            
+            # 첫 번째 물건 분석
+            cols = items[1].find_elements(By.TAG_NAME, "td")
+            case_no = cols[1].text.strip()
+            addr = cols[3].text.replace('\n', ' ')
+            
+            # AI 분석 (Gemini 1.5 Flash 모델 사용)
+            prompt = f"경매 사건번호 {case_no}, 주소 {addr} 분석. 투자 점수와 핵심 한줄평."
+            response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt)
+            
+            send_telegram_msg(f"🏠 <b>AI 분석</b>\n사건번호: {case_no}\n{response.text}")
+        else:
+            page_text = driver.find_element(By.TAG_NAME, "body").text[:50]
+            send_telegram_msg(f"⚠️ 결과가 없습니다. (현재 화면: {page_text})")
+
+    except Exception as e:
+        send_telegram_msg(f"❌ 오류 발생: {str(e)[:100]}")
+    
+    finally:
+        driver.quit()
+        send_telegram_msg("🏁 비서 업무 종료")
+
+if __name__ == "__main__":
+    crawl_and_analyze()
